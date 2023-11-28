@@ -39,13 +39,13 @@ class Product:
 
     def get_brand(self):
         # Check for 'Brand' key in features and return in lowercase
-        if 'Brand' in self.features:
-            return self.features['Brand'].lower()
+        if 'brand' in self.features:
+            return self.features['brand'].lower()
         # If 'Brand' is not available, check for 'Brand Name'
-        elif 'Brand Name' in self.features:
-            return self.features['Brand Name'].lower()
-        elif 'Brand Name:' in self.features:
-            return self.features['Brand Name:'].lower()
+        elif 'brand name' in self.features:
+            return self.features['brand name'].lower()
+        elif 'brand name:' in self.features:
+            return self.features['brand name:'].lower()
         else:
             return None
 
@@ -63,4 +63,10 @@ class Product:
 
         return set(model_words_title)
 
-    
+    def get_shingles_title(self, shingle_size):
+        shingle_title = self.title.replace(" ", "")
+        self.shingles = set()
+        for i in range(len(shingle_title) - shingle_size):
+            self.shingles.add(shingle_title[i:i+shingle_size])
+
+        return self.shingles
