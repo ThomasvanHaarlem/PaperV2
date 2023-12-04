@@ -1,4 +1,5 @@
 import json
+import math
 import random
 import sympy
 import numpy as np
@@ -125,7 +126,7 @@ def get_performance_LSH(true_pairs, candidate_pairs):
 
     return PQ, PC, F1_star
 
-def get_performance_predismat(pre_dissimilarity_matrix, true_pairs):
+def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
     duplicates_found = 0
     dismat_pairs = set()
 
@@ -142,6 +143,16 @@ def get_performance_predismat(pre_dissimilarity_matrix, true_pairs):
     PC_predismat = duplicates_found / len(true_pairs)
 
     F1_star_predismat = (2*PQ_predismat*PC_predismat)/(PQ_predismat+PC_predismat)
+
+    # Print things:
+    performance_LSH = [
+        ["PQ", PQ, PQ_predismat],
+        ["PC", PC, PC_predismat],
+        ["F1 star", F1_star, F1_star_predismat],]
+    table_LSH = tabulate(performance_LSH, headers=["", "before", "after"], tablefmt="grid")
+
+    print("scores before clustering (before and after checking for brand and shop)")
+    print(table_LSH)
 
     return PQ_predismat, PC_predismat, F1_star_predismat
 
@@ -213,88 +224,80 @@ def get_final_performance(products, predicted_pairs, true_pairs):
             FN += 1
 
     FP = len(predicted_pairs) - TP
-    TN = len(products) - TP - FN - FP
+    TN = math.comb(len(products), 2) - TP - FN - FP
 
     F1 = (2*TP)/(2*TP + FP + FN)
 
     precision = TP/(TP + FP)
     recall = TP/(TP + FN)
 
+    # Print things:
+    final_performance = [
+        ["F1", F1],
+        ["precision", precision],
+        ["recall", recall],
+    ]
+    table_final = tabulate(final_performance, headers=["", "score"], tablefmt="grid")
+
+    print("final scores")
+    print(table_final)
+
+    confusion_matrix = [
+        ["TN:", TN, "FP:", FP],
+        ["FN:", FN, "TP:", TP],]
+
+    # Print the confusion matrix
+    for row in confusion_matrix:
+        print("\t".join(map(str, row)))
+
     return TN, TP, FN, FP, F1, precision, recall
 
 
+def load_data():
+    with open("TVs-all-merged.json") as json_file:
+        tv_data = json.load(json_file)
+
+    products = []
+
+    for model_id, product_list in tv_data.items():
+        for product in product_list:
+            # Extracting relevant information
+            product_instance = Product(
+                model_id=model_id,
+                shop=product.get('shop'),
+                title=product.get('title'),
+                url=product.get('url'),
+                features=product.get('featuresMap', {})
+            )
+            products.append(product_instance)
+    return products
+
 ########################################################################################################################
-# Set the seed for reproducibility
-random_seed = 123
-random.seed(random_seed)  # Seed for Python's built-in random module
-np.random.seed(random_seed)  # Seed for NumPy's random module
+if __name__ == "__main__":
+    # Set the seed for reproducibility
+    random_seed = 123
+    random.seed(random_seed)  # Seed for Python's built-in random module
+    np.random.seed(random_seed)  # Seed for NumPy's random module
 
-with open("TVs-all-merged.json") as json_file:
-    tv_data = json.load(json_file)
+    shingle_size = 3
+    number_hashes = 180
+    bands = 60
+    threshold = 0.7
+    rows = number_hashes // bands
+    t_score = (1 / bands) ** (1 / rows)
+    print(f"The t score = {t_score}")
 
-products = []
 
-for model_id, product_list in tv_data.items():
-    for product in product_list:
-        # Extracting relevant information
-        product_instance = Product(
-            model_id=model_id,
-            shop=product.get('shop'),
-            title=product.get('title'),
-            url=product.get('url'),
-            features=product.get('featuresMap', {})
-        )
-        products.append(product_instance)
-
-shingle_size = 3
-number_hashes = 600
-bands = 24
-threshold = 0.9
-rows = number_hashes // bands
-t_score = (1 / bands) ** (1 / rows)
-print(f"The t score = {t_score}")
-
-true_pairs = get_true_pairs(products)
-binary_matrix = get_binary_matrix(products)
-signature_matrix = get_signature_matrix(binary_matrix, number_hashes)
-candidate_pairs = perform_LSH(products, signature_matrix, bands, rows)
-PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
-pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
-comparisons_made = np.isfinite(pre_dissimilarity_matrix).sum()
-print(f"The amount of comparisons made = {comparisons_made}")
-PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(pre_dissimilarity_matrix, true_pairs)
-### Print fancy table with performance
-performance_LSH = [
-    ["PQ", PQ, PQ_predismat],
-    ["PC", PC, PC_predismat],
-    ["F1 star", F1_star, F1_star_predismat],
-]
-table_LSH = tabulate(performance_LSH, headers=["", "before", "after"], tablefmt="grid")
-
-print("scores before clustering (before and after checking for brand and shop)")
-print(table_LSH)
-###
-predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix,threshold, shingle_size)
-TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs, true_pairs)
-### Print fancy table with performance
-final_performance = [
-    ["F1", F1],
-    ["precision", precision],
-    ["recall", recall],
-]
-table_final = tabulate(final_performance, headers=["", "score"], tablefmt="grid")
-
-print("final scores")
-print(table_final)
-
-confusion_matrix = [
-    ["TN:", TN, "FP:", FP],
-    ["FN:", FN, "TP:", TP],
-]
-
-# Print the confusion matrix
-for row in confusion_matrix:
-    print("\t".join(map(str, row)))
-
-###
-print("END_BUG")
+    products = load_data()
+    true_pairs = get_true_pairs(products)
+    binary_matrix = get_binary_matrix(products)
+    signature_matrix = get_signature_matrix(binary_matrix, number_hashes)
+    candidate_pairs = perform_LSH(products, signature_matrix, bands, rows)
+    PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
+    pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
+    comparisons_made = np.isfinite(pre_dissimilarity_matrix).sum()
+    print(f"The amount of comparisons made = {comparisons_made}")
+    PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs)
+    predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix,threshold, shingle_size)
+    TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs, true_pairs)
+    print("END_BUG")
