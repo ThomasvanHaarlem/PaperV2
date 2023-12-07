@@ -2,8 +2,13 @@ from main import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-number_hashes = 180
-bands_list = [10, 30, 60]
+# Set the seed for reproducibility
+random_seed = 123
+random.seed(random_seed)  # Seed for Python's built-in random module
+np.random.seed(random_seed)  # Seed for NumPy's random module
+
+number_hashes = 600
+bands_list = [1, 5, 10, 30, 60, 100, 150, 200, 300, 600]
 shingle_size = 3
 threshold = 0.7
 
@@ -24,12 +29,13 @@ for bands in bands_list:
     print(f"The t score = {t_score}")
 
     candidate_pairs = perform_LSH(products, signature_matrix, bands, rows)
-    PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
-    pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
-    comparisons_made = np.isfinite(pre_dissimilarity_matrix).sum()
+    comparisons_made = len(candidate_pairs)
     fractions.append(comparisons_made/tot_comparisons)
     print(f"The amount of comparisons made = {comparisons_made}")
+    PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
+    pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
     PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs)
+    print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat)
     predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold, shingle_size)
     TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs, true_pairs)
 
@@ -46,5 +52,5 @@ plt.ylabel('Metric value')
 plt.legend()
 plt.show()
 
-
+print("bug_analyse")
 

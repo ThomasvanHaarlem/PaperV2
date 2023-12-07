@@ -7,7 +7,6 @@ import itertools
 from product import Product
 from tabulate import tabulate
 
-
 from collections import Counter
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 from sklearn.cluster import AgglomerativeClustering
@@ -16,36 +15,49 @@ from itertools import product as cartesian_product
 import re
 
 
-def get_unique_model_words(products):
-    unique_model_words = set()
-
-    for tv in products:
-        unique_model_words.update(tv.model_words_title)  # Use update to add elements of a set
-
-    return unique_model_words
-
 def get_true_pairs(products):
     true_pairs = set()
     for i, product1 in enumerate(products):
-        for j, product2 in enumerate(products[i+1:], start=i+1):
+        for j, product2 in enumerate(products[i + 1:], start=i + 1):
             if product1.model_id == product2.model_id:
                 true_pairs.add((i, j))
 
     return true_pairs
 
-def get_binary_matrix(products):
-    unique_model_words = list(get_unique_model_words(products))
-    binary_matrix = np.zeros((len(unique_model_words), len(products)))
 
-    for i, word in enumerate(unique_model_words):
+def get_unique_words(products):
+    unique_model_words = set()
+    unique_brands = set()
+    unique_sizes = set()
+
+    for tv in products:
+        unique_model_words.update(tv.model_words_title)  # Use update to add elements of a set
+        unique_brands.add(tv.brand)
+        unique_sizes.add(tv.size_class)
+
+    unique_words = list(unique_model_words)  # .union(unique_sizes, unique_brands))
+    # unique_words.remove("Brand not found")
+    # unique_words.remove("size class not found")
+
+    return unique_words
+
+
+def get_binary_matrix(products, shingle_size):
+    unique_words = get_unique_words(products)
+    binary_matrix = np.zeros((len(unique_words), len(products)))
+
+    for i, word in enumerate(unique_words):
         for j, tv in enumerate(products):
-            if word in tv.model_words_title:
+            if word in tv.model_words_title or word in tv.brand or word in tv.size_class:
                 binary_matrix[i][j] = 1
 
     return binary_matrix
 
+
 def hash_function_generator(a, b, prime):
     return lambda x: (a + b * x) % prime
+
+
 def get_signature_matrix(binary_matrix, number_hashes):
     n, p = binary_matrix.shape
     signature_matrix = np.full((number_hashes, p), np.inf)
@@ -75,11 +87,13 @@ def get_signature_matrix(binary_matrix, number_hashes):
     print("bug_sigmat")
     return signature_matrix
 
+
 def hash_function_band(product_vector):
     # Concatenate values within the band to form the bucket number
     product_vector = [int(value) if isinstance(value, np.float64) else value for value in product_vector]
     bucket_number = int(''.join(map(str, product_vector)))
     return bucket_number
+
 
 def perform_LSH(products, signature_matrix, bands, rows):
     candidate_groups = []
@@ -113,6 +127,7 @@ def perform_LSH(products, signature_matrix, bands, rows):
     print("bug_LSH")
     return candidate_pairs
 
+
 def get_performance_LSH(true_pairs, candidate_pairs):
     duplicates_found = 0
     for pair in candidate_pairs:
@@ -122,9 +137,48 @@ def get_performance_LSH(true_pairs, candidate_pairs):
     PQ = duplicates_found / len(candidate_pairs)
     PC = duplicates_found / len(true_pairs)
 
-    F1_star = (2*PQ*PC)/(PQ+PC)
+    F1_star = (2 * PQ * PC) / (PQ + PC)
 
     return PQ, PC, F1_star
+
+
+def update_brands(products):
+    # Create set of brands mentioned
+    brands = set()
+    for product in products:
+        if product.brand is not None:
+            brands.add(product.brand)
+
+    for tv in products:
+        if tv.brand is None:
+            for brand in brands:
+                if brand in tv.title:
+                    tv.brand = brand
+                    break
+
+
+def pre_dis_mat(products, candidate_pairs):
+    dis_matrix = np.full((len(products), len(products)), 1.0)
+    update_brands(products)
+
+    for i, product1 in enumerate(products):
+        for j, product2 in enumerate(products[i:], start=i):
+
+            # Check if both brands are known and different
+            if (product1.brand != "Brand not found" and product2.brand != "Brand not found"
+                    and product1.brand != product2.brand):
+                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
+
+            # Check if products are from the same shop
+            # eif product1.shop == product2.shop:
+            #     dis_matrix[i][j] = dis_matrix[j][i] = np.inf
+            # Check if they are never mentioned as candidate
+            elif (i, j) not in candidate_pairs and (j, i) not in candidate_pairs:
+                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
+
+    print("bug_pre")
+    return dis_matrix
+
 
 def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
     duplicates_found = 0
@@ -142,56 +196,10 @@ def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
     PQ_predismat = duplicates_found / len(dismat_pairs)
     PC_predismat = duplicates_found / len(true_pairs)
 
-    F1_star_predismat = (2*PQ_predismat*PC_predismat)/(PQ_predismat+PC_predismat)
-
-    # Print things:
-    performance_LSH = [
-        ["PQ", PQ, PQ_predismat],
-        ["PC", PC, PC_predismat],
-        ["F1 star", F1_star, F1_star_predismat],]
-    table_LSH = tabulate(performance_LSH, headers=["", "before", "after"], tablefmt="grid")
-
-    print("scores before clustering (before and after checking for brand and shop)")
-    print(table_LSH)
+    F1_star_predismat = (2 * PQ_predismat * PC_predismat) / (PQ_predismat + PC_predismat)
 
     return PQ_predismat, PC_predismat, F1_star_predismat
 
-
-def update_brands(products):
-    # Create set of brands mentioned
-    brands = set()
-    for product in products:
-        if product.brand is not None:
-            brands.add(product.brand)
-
-    for tv in products:
-        if tv.brand is None:
-            for brand in brands:
-                if brand in tv.title:
-                    tv.brand = brand
-                    break
-
-def pre_dis_mat(products, candidate_pairs):
-    dis_matrix = np.full((len(products), len(products)), 1.0)
-    update_brands(products)
-
-    for i, product1 in enumerate(products):
-        for j, product2 in enumerate(products[i:], start=i):
-
-            # Check if products are from the same shop
-            if product1.shop == product2.shop:
-                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
-
-            # Check if both brands are known and different
-            elif product1.brand is not None and product2.brand is not None and product1.brand != product2.brand:
-                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
-
-            # Check if they are never mentioned as candidate
-            elif (i, j) not in candidate_pairs and (j, i) not in candidate_pairs:
-                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
-
-    print("bug_pre")
-    return dis_matrix
 
 def get_predicted_pairs(products, dis_mat, threshold, shingle_size):
     for i, product1 in enumerate(products):
@@ -208,9 +216,10 @@ def get_predicted_pairs(products, dis_mat, threshold, shingle_size):
     for i in range(len(products)):
         for j in range(i, len(products)):
             if dis_mat[i][j] < threshold:
-                predicted_pairs.add(tuple(sorted((i,j))))
+                predicted_pairs.add(tuple(sorted((i, j))))
 
     return predicted_pairs
+
 
 def get_final_performance(products, predicted_pairs, true_pairs):
     TP = 0
@@ -226,10 +235,10 @@ def get_final_performance(products, predicted_pairs, true_pairs):
     FP = len(predicted_pairs) - TP
     TN = math.comb(len(products), 2) - TP - FN - FP
 
-    F1 = (2*TP)/(2*TP + FP + FN)
+    F1 = (2 * TP) / (2 * TP + FP + FN)
 
-    precision = TP/(TP + FP)
-    recall = TP/(TP + FN)
+    precision = TP / (TP + FP)
+    recall = TP / (TP + FN)
 
     # Print things:
     final_performance = [
@@ -244,13 +253,24 @@ def get_final_performance(products, predicted_pairs, true_pairs):
 
     confusion_matrix = [
         ["TN:", TN, "FP:", FP],
-        ["FN:", FN, "TP:", TP],]
+        ["FN:", FN, "TP:", TP], ]
 
     # Print the confusion matrix
     for row in confusion_matrix:
         print("\t".join(map(str, row)))
 
     return TN, TP, FN, FP, F1, precision, recall
+
+
+def print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat):
+    performance_LSH = [
+        ["PQ", PQ, PQ_predismat],
+        ["PC", PC, PC_predismat],
+        ["F1 star", F1_star, F1_star_predismat], ]
+    table_LSH = tabulate(performance_LSH, headers=["", "before", "after"], tablefmt="grid")
+
+    print("scores before clustering (before and after checking for brand and shop)")
+    print(table_LSH)
 
 
 def load_data():
@@ -272,6 +292,7 @@ def load_data():
             products.append(product_instance)
     return products
 
+
 ########################################################################################################################
 if __name__ == "__main__":
     # Set the seed for reproducibility
@@ -280,24 +301,25 @@ if __name__ == "__main__":
     np.random.seed(random_seed)  # Seed for NumPy's random module
 
     shingle_size = 3
-    number_hashes = 180
+    number_hashes = 600
     bands = 60
-    threshold = 0.7
+    threshold = 0.6
     rows = number_hashes // bands
     t_score = (1 / bands) ** (1 / rows)
     print(f"The t score = {t_score}")
 
-
     products = load_data()
     true_pairs = get_true_pairs(products)
-    binary_matrix = get_binary_matrix(products)
+    binary_matrix = get_binary_matrix(products, shingle_size)
     signature_matrix = get_signature_matrix(binary_matrix, number_hashes)
     candidate_pairs = perform_LSH(products, signature_matrix, bands, rows)
+    comparisons_made = len(candidate_pairs)
+    print(f"The amount of comparisons made = {comparisons_made}")
     PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
     pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
-    comparisons_made = np.isfinite(pre_dissimilarity_matrix).sum()
-    print(f"The amount of comparisons made = {comparisons_made}")
-    PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs)
-    predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix,threshold, shingle_size)
+    PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix,
+                                                                              true_pairs)
+    print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat)
+    predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold, shingle_size)
     TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs, true_pairs)
     print("END_BUG")

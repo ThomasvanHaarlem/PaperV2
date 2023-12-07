@@ -14,6 +14,7 @@ class Product:
         self.features = self.clean_features(features)
         self.brand = self.get_brand()
         self.model_words_title = self.get_model_words_title()
+        self.size_class = self.get_size()
 
     def __repr__(self):
         return f"Product(model_id={self.model_id}, shop={self.shop}, title={self.title})"
@@ -40,14 +41,14 @@ class Product:
     def get_brand(self):
         # Check for 'Brand' key in features and return in lowercase
         if 'brand' in self.features:
-            return self.features['brand'].lower()
+            return self.features['brand'].split()[0].lower()
         # If 'Brand' is not available, check for 'Brand Name'
         elif 'brand name' in self.features:
-            return self.features['brand name'].lower()
+            return self.features['brand name'].split()[0].lower()
         elif 'brand name:' in self.features:
-            return self.features['brand name:'].lower()
+            return self.features['brand name:'].split()[0].lower()
         else:
-            return None
+            return "Brand not found"
 
     def get_model_words_title(self):
         """
@@ -70,3 +71,29 @@ class Product:
             self.shingles.add(shingle_title[i:i+shingle_size])
 
         return self.shingles
+
+    def get_size(self):
+        self.size_class = None
+        for key, item in self.features.items():
+            if "size" in key:
+                match = re.search(r'\d+(\.\d+)?', item)
+                if match:
+                    size_value = float(match.group())
+                    self.size_class = self.determine_size_class(size_value)
+                    break
+
+        return "size class: " + str(self.size_class) if self.size_class is not None else "size class not found"
+    @staticmethod
+    def determine_size_class(size_value):
+        size_ranges = [
+            (0, 10.5), (10.5, 20.5), (21, 30.5), (30.5, 35.5),
+            (35.5, 40.5), (40.5, 45.5), (45.5, 50.5), (50.5, 55.5),
+            (55.5, 60.5), (60.5, 65.5), (65.5, 70.5), (70.5, 80.5),
+            (80.5, 90.5), (90.5, float('inf'))
+        ]
+        for i, (start, end) in enumerate(size_ranges):
+            if start <= size_value < end:
+                return i
+        return len(size_ranges) - 1  # For sizes >= 90.5
+
+
