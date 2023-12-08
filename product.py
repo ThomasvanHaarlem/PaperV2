@@ -15,6 +15,7 @@ class Product:
         self.brand = self.get_brand()
         self.model_words_title = self.get_model_words_title()
         self.size_class = self.get_size()
+        self.potential_model_id = self.get_potential_model_id()
         self.model_words_features = None
         self.shingles_keys = None
         self.shingles_values = None
@@ -27,6 +28,7 @@ class Product:
         title = re.sub(r'\s*-\s*hz|\s*hertz|\s+hz', 'hz', title)
         title = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"|\d+\s*in\b', 'inch', title)
         title = title.replace("-", "")
+        title = title.replace("/", "")
         return title
 
     def clean_features(self, features):
@@ -155,6 +157,7 @@ class Product:
         checking whether the word is at least 4 characters long
         removing all words that contain inch or hz or 1080p or 720p or 2160p or 3dready
         removing all words that are just letters or just numbers
+        removing all words that contain series
         """
         regex = r'(?=.*[a-zA-Z])(?=.*[0-9])\w+'
         potential_model_id = re.findall(regex, self.title)
@@ -163,8 +166,9 @@ class Product:
                               'inch' not in word and 'hz' not in word and '1080p' not in word and '720p' not in word
                               and '2160p' not in word and '3dready' not in word]
         potential_model_id = [word for word in potential_model_id if not word.isdigit() and not word.isalpha()]
-        # if len(potential_model_id) > 1:
-        #     potential_model_id = potential_model_id[0]
+        potential_model_id = [word for word in potential_model_id if 'series' not in word]
+        if len(potential_model_id) > 1:
+            potential_model_id = max(potential_model_id, key=len)
 
         if len(potential_model_id) == 0:
             potential_model_id = "Not found"
