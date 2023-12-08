@@ -6,6 +6,7 @@ import numpy as np
 import itertools
 from product import Product
 from tabulate import tabulate
+from MSM import msm
 
 from collections import Counter
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
@@ -35,8 +36,8 @@ def get_unique_words(products):
         unique_brands.add(tv.brand)
         unique_sizes.add(tv.size_class)
 
-    unique_words = list(unique_model_words)  # .union(unique_sizes, unique_brands))
-    # unique_words.remove("Brand not found")
+    unique_words = list(unique_model_words.union(unique_brands))
+    unique_words.remove("Brand not found")
     # unique_words.remove("size class not found")
 
     return unique_words
@@ -170,8 +171,8 @@ def pre_dis_mat(products, candidate_pairs):
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
 
             # Check if products are from the same shop
-            # eif product1.shop == product2.shop:
-            #     dis_matrix[i][j] = dis_matrix[j][i] = np.inf
+            elif product1.shop == product2.shop:
+                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
             # Check if they are never mentioned as candidate
             elif (i, j) not in candidate_pairs and (j, i) not in candidate_pairs:
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
@@ -201,18 +202,44 @@ def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
     return PQ_predismat, PC_predismat, F1_star_predismat
 
 
-def get_predicted_pairs(products, dis_mat, threshold, shingle_size):
+def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta, gamma, mu):
     for i, product1 in enumerate(products):
         for j, product2 in enumerate(products[i:], start=i):
             if not np.isinf(dis_mat[i][j]):
+                ## msm does not yield better f1 than just singles
+                # dis_mat[i][j] = 1 - msm(product1, product2, shingle_size, alpha, beta, gamma, mu)
+
                 shingles1 = product1.get_shingles_title(shingle_size)
                 shingles2 = product2.get_shingles_title(shingle_size)
 
                 count = sum(1 for shingle in shingles1 if shingle in shingles2)
                 similarity = count / min(len(shingles1), len(shingles2)) if shingles1 or shingles2 else 0
                 dis_mat[i][j] = dis_mat[j][i] = 1 - similarity
-
     predicted_pairs = set()
+
+    # Does not yield beter f1 than just finding the pairs
+    # ### Clusters ###
+    # # Replace np.inf values with a very large number
+    # dis_mat = np.where(dis_mat == np.inf, 1e8, dis_mat)
+    #
+    # # Create the clustering model
+    # model = AgglomerativeClustering(metric='precomputed', linkage='single',
+    #                                 distance_threshold=threshold, n_clusters=None)
+    # model.fit(dis_mat)
+    #
+    # # Mapping cluster labels to original product indices
+    # clusters = {}
+    # for index, label in enumerate(model.labels_):
+    #     clusters.setdefault(label, []).append(index)
+    #
+    # for key in clusters:
+    #     if len(clusters[key]) > 1:
+    #         for i, product_index in enumerate(clusters[key]):
+    #             for j in range(i+1, len(clusters[key])):
+    #                 predicted_pairs.add((product_index, clusters[key][j]))
+    # ### Clusters ###
+
+
     for i in range(len(products)):
         for j in range(i, len(products)):
             if dis_mat[i][j] < threshold:
@@ -308,6 +335,12 @@ if __name__ == "__main__":
     t_score = (1 / bands) ** (1 / rows)
     print(f"The t score = {t_score}")
 
+    q = 3
+    alpha = 0.6
+    beta = 0.01
+    gamma = 0.2
+    mu = 0.65
+
     products = load_data()
     true_pairs = get_true_pairs(products)
     binary_matrix = get_binary_matrix(products, shingle_size)
@@ -320,6 +353,7 @@ if __name__ == "__main__":
     PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix,
                                                                               true_pairs)
     print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat)
-    predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold, shingle_size)
+    predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold, shingle_size, alpha, beta,
+                                          gamma, mu)
     TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs, true_pairs)
     print("END_BUG")

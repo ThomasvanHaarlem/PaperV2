@@ -15,6 +15,9 @@ class Product:
         self.brand = self.get_brand()
         self.model_words_title = self.get_model_words_title()
         self.size_class = self.get_size()
+        self.model_words_features = None
+        self.shingles_keys = None
+        self.shingles_values = None
 
     def __repr__(self):
         return f"Product(model_id={self.model_id}, shop={self.shop}, title={self.title})"
@@ -96,4 +99,46 @@ class Product:
                 return i
         return len(size_ranges) - 1  # For sizes >= 90.5
 
+    def MW_features(self, important_features):
+        if self.model_words_features is None:
+            self.model_words_features = {}
+        # Just keep numbers
+        regex = r'\b\d+(?:[.,]\d+)?[a-zA-Z]*\b'
 
+        for key in important_features:
+            if key not in self.model_words_features.keys():
+                value = self.features[key]
+                matches = re.findall(regex, value)
+
+                processed_matches = []
+
+                # Remove text part from each match and add to processed_matches
+                for match in matches:
+                    match = re.sub(r'[a-zA-Z]+$', '', match)
+                    processed_matches.append(match)
+
+                # Assign processed matches to the key, or a default value if no matches
+                self.model_words_features[key] = processed_matches if processed_matches else None
+
+        return self.model_words_features
+
+    def get_shingles_key(self, q):
+        if self.shingles_keys is None:
+            self.shingles_keys = {}
+            for key in self.features.keys():
+                shingles = [key[i:i + q] for i in range(0, len(key) - q + 1)]
+                self.shingles_keys[key] = shingles
+
+        return self.shingles_keys
+
+    def get_shingles_values(self, key, q):
+        if self.shingles_values is None:
+            self.shingles_values = {}
+
+        if key not in self.shingles_values:
+            value = self.features[key]
+            shingles = [value[i:i + q] for i in range(0, len(value) - q + 1)]
+            self.shingles_values[key] = shingles
+            return self.shingles_values
+        else:
+            return self.shingles_values
