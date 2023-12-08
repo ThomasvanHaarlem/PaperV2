@@ -25,7 +25,8 @@ class Product:
     def clean_title(self, title):
         title = title.lower()
         title = re.sub(r'\s*-\s*hz|\s*hertz|\s+hz', 'hz', title)
-        title = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"', 'inch', title)
+        title = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"|\d+\s*in\b', 'inch', title)
+        title = title.replace("-", "")
         return title
 
     def clean_features(self, features):
@@ -69,6 +70,10 @@ class Product:
 
     def get_shingles_title(self, shingle_size):
         shingle_title = self.title.replace(" ", "")
+        # Remove shop from title
+        shingle_title = shingle_title.replace(self.shop, "")
+        shingle_title = shingle_title.replace("-bestbuy", "")
+
         self.shingles = set()
         for i in range(len(shingle_title) - shingle_size):
             self.shingles.add(shingle_title[i:i+shingle_size])
@@ -142,3 +147,26 @@ class Product:
             return self.shingles_values
         else:
             return self.shingles_values
+
+    def get_potential_model_id(self):
+        """
+        Get a potential model id from the title
+        by finding all words that contain at least one letter and one number
+        checking whether the word is at least 4 characters long
+        removing all words that contain inch or hz or 1080p or 720p or 2160p or 3dready
+        removing all words that are just letters or just numbers
+        """
+        regex = r'(?=.*[a-zA-Z])(?=.*[0-9])\w+'
+        potential_model_id = re.findall(regex, self.title)
+        potential_model_id = [word for word in potential_model_id if len(word) >= 4]
+        potential_model_id = [word for word in potential_model_id if
+                              'inch' not in word and 'hz' not in word and '1080p' not in word and '720p' not in word
+                              and '2160p' not in word and '3dready' not in word]
+        potential_model_id = [word for word in potential_model_id if not word.isdigit() and not word.isalpha()]
+        # if len(potential_model_id) > 1:
+        #     potential_model_id = potential_model_id[0]
+
+        if len(potential_model_id) == 0:
+            potential_model_id = "Not found"
+
+        return potential_model_id

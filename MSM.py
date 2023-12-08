@@ -175,4 +175,5 @@ def msm(product1, product2, q, alpha, beta, gamma, mu):
         theta2 = 1 - mu - theta1
         h_sim = theta1 * avg_sim + theta2 * mw_percentage + mu * title_sim
 
+
     return h_sim

@@ -173,6 +173,9 @@ def pre_dis_mat(products, candidate_pairs):
             # Check if products are from the same shop
             elif product1.shop == product2.shop:
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
+            # Check if potential model ids are different
+            elif product1.potential_model_id != product2.potential_model_id:
+                dis_matrix[i][j] = dis_matrix[j][i] = np.inf
             # Check if they are never mentioned as candidate
             elif (i, j) not in candidate_pairs and (j, i) not in candidate_pairs:
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
@@ -201,7 +204,6 @@ def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
 
     return PQ_predismat, PC_predismat, F1_star_predismat
 
-
 def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta, gamma, mu):
     for i, product1 in enumerate(products):
         for j, product2 in enumerate(products[i:], start=i):
@@ -218,32 +220,32 @@ def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta,
     predicted_pairs = set()
 
     # Does not yield beter f1 than just finding the pairs
-    # ### Clusters ###
-    # # Replace np.inf values with a very large number
-    # dis_mat = np.where(dis_mat == np.inf, 1e8, dis_mat)
-    #
-    # # Create the clustering model
-    # model = AgglomerativeClustering(metric='precomputed', linkage='single',
-    #                                 distance_threshold=threshold, n_clusters=None)
-    # model.fit(dis_mat)
-    #
-    # # Mapping cluster labels to original product indices
-    # clusters = {}
-    # for index, label in enumerate(model.labels_):
-    #     clusters.setdefault(label, []).append(index)
-    #
-    # for key in clusters:
-    #     if len(clusters[key]) > 1:
-    #         for i, product_index in enumerate(clusters[key]):
-    #             for j in range(i+1, len(clusters[key])):
-    #                 predicted_pairs.add((product_index, clusters[key][j]))
-    # ### Clusters ###
+    ### Clusters ###
+    # Replace np.inf values with a very large number
+    dis_mat = np.where(dis_mat == np.inf, 1e8, dis_mat)
+
+    # Create the clustering model
+    model = AgglomerativeClustering(metric='precomputed', linkage='single',
+                                    distance_threshold=threshold, n_clusters=None)
+    model.fit_predict(dis_mat)
+
+    # Mapping cluster labels to original product indices
+    clusters = {}
+    for index, label in enumerate(model.labels_):
+        clusters.setdefault(label, []).append(index)
+
+    for key in clusters:
+        if len(clusters[key]) > 1:
+            for i, product_index in enumerate(clusters[key]):
+                for j in range(i+1, len(clusters[key])):
+                    predicted_pairs.add((product_index, clusters[key][j]))
+    ### Clusters ###
 
 
-    for i in range(len(products)):
-        for j in range(i, len(products)):
-            if dis_mat[i][j] < threshold:
-                predicted_pairs.add(tuple(sorted((i, j))))
+    # for i in range(len(products)):
+    #     for j in range(i, len(products)):
+    #         if dis_mat[i][j] < threshold:
+    #             predicted_pairs.add(tuple(sorted((i, j))))
 
     return predicted_pairs
 
@@ -342,6 +344,8 @@ if __name__ == "__main__":
     mu = 0.65
 
     products = load_data()
+    for product in products:
+        product.get_potential_model_id()
     true_pairs = get_true_pairs(products)
     binary_matrix = get_binary_matrix(products, shingle_size)
     signature_matrix = get_signature_matrix(binary_matrix, number_hashes)

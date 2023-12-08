@@ -53,12 +53,25 @@ def brand_counter(products):
 
     return brand_counter
 
+def analysis_model_ids(products):
+    min_length = 20
+    max_length = 0
+    for i, product in enumerate(products):
+        model_id = product.model_id
+
+        if len(model_id) < min_length:
+            min_length = len(model_id)
+        if len(model_id) > max_length:
+            max_length = len(model_id)
+
+    return min_length, max_length
 
 # f_counts = features_count(products)
 # w_counts = countFeatureKeysWebsite(products)
 # find_size(products)
 # s_counts = size_count(products)
-b_counts = brand_counter(products)
+# b_counts = brand_counter(products)
+min_length, max_length = analysis_model_ids(products)
 
 
 print("analyse")
