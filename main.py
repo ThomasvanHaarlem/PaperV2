@@ -30,15 +30,21 @@ def get_unique_words(products):
     unique_model_words = set()
     unique_brands = set()
     unique_sizes = set()
+    unique_potential_model_ids = set()
+
+    update_brands(products)
 
     for tv in products:
         unique_model_words.update(tv.model_words_title)  # Use update to add elements of a set
         unique_brands.add(tv.brand)
         unique_sizes.add(tv.size_class)
+        unique_potential_model_ids.add(tv.potential_model_id)
 
-    unique_words = list(unique_model_words.union(unique_brands))
-    unique_words.remove("Brand not found")
-    # unique_words.remove("size class not found")
+    unique_words = list(unique_model_words.union(unique_brands, unique_potential_model_ids))
+
+    unique_words.remove("Brand not found") if "Brand not found" in unique_words else None
+    unique_words.remove("size class not found") if "size class not found" in unique_words else None
+    unique_words.remove("Not found") if "Not found" in unique_words else None
 
     return unique_words
 
@@ -49,7 +55,8 @@ def get_binary_matrix(products, shingle_size):
 
     for i, word in enumerate(unique_words):
         for j, tv in enumerate(products):
-            if word in tv.model_words_title or word in tv.brand or word in tv.size_class:
+            if (word in tv.model_words_title or
+                    word in tv.brand or word in tv.size_class or word in tv.potential_model_id):
                 binary_matrix[i][j] = 1
 
     return binary_matrix
@@ -173,6 +180,7 @@ def pre_dis_mat(products, candidate_pairs):
             # Check if products are from the same shop
             elif product1.shop == product2.shop:
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
+
             # Check if they are never mentioned as candidate
             elif (i, j) not in candidate_pairs and (j, i) not in candidate_pairs:
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
@@ -204,9 +212,6 @@ def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
 def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta, gamma, mu):
     for i, product1 in enumerate(products):
         for j, product2 in enumerate(products[i:], start=i):
-            if (product1.potential_model_id == product2.potential_model_id and
-                    product1.potential_model_id != "Not found" and product2.potential_model_id != "Not found"):
-                dis_mat[i][j] = dis_mat[j][i] = 0
             if not np.isinf(dis_mat[i][j]):
                 ## msm does not yield better f1 than just singles
                 # dis_mat[i][j] = 1 - msm(product1, product2, shingle_size, alpha, beta, gamma, mu)
@@ -216,6 +221,16 @@ def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta,
 
                 count = sum(1 for shingle in shingles1 if shingle in shingles2)
                 similarity = count / min(len(shingles1), len(shingles2)) if shingles1 or shingles2 else 0
+                if product1.size_class == product2.size_class:
+                    similarity += alpha
+
+                if (product1.potential_model_id == product2.potential_model_id and
+                        product1.potential_model_id != "Not found" and product2.potential_model_id != "Not found"):
+                    similarity += beta
+
+                if similarity > 1:
+                    similarity = 1
+
                 dis_mat[i][j] = dis_mat[j][i] = 1 - similarity
     predicted_pairs = set()
 
@@ -266,8 +281,11 @@ def get_final_performance(products, predicted_pairs, true_pairs):
 
     F1 = (2 * TP) / (2 * TP + FP + FN)
 
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
+    precision = TP / (TP + FP)  # quality
+    recall = TP / (TP + FN)     # completeness
+
+    PQ = TP / len(predicted_pairs)
+    PC = TP / len(true_pairs)
 
     # Print things:
     final_performance = [
@@ -279,6 +297,8 @@ def get_final_performance(products, predicted_pairs, true_pairs):
 
     print("final scores")
     print(table_final)
+
+    print(f"PQ = {PQ}, PC = {PC}")
 
     confusion_matrix = [
         ["TN:", TN, "FP:", FP],
@@ -331,15 +351,15 @@ if __name__ == "__main__":
 
     shingle_size = 3
     number_hashes = 600
-    bands = 60
-    threshold = 0.6
+    bands = 120
+    threshold = 0.1
     rows = number_hashes // bands
     t_score = (1 / bands) ** (1 / rows)
     print(f"The t score = {t_score}")
 
     q = 3
-    alpha = 0.6
-    beta = 0.01
+    alpha = 0.05
+    beta = 0.5
     gamma = 0.2
     mu = 0.65
 

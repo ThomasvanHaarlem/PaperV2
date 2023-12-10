@@ -169,8 +169,7 @@ class Product:
         potential_model_id = [word for word in potential_model_id if 'series' not in word]
         if len(potential_model_id) > 1:
             potential_model_id = max(potential_model_id, key=len)
-
-        if len(potential_model_id) == 0:
-            potential_model_id = "Not found"
+        else:
+            potential_model_id = potential_model_id[0] if len(potential_model_id) > 0 else "Not found"
 
         return potential_model_id
