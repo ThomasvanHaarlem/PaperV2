@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 
 def loop_bands(products, number_hashes, true_pairs, tot_comparisons, shingle_size, threshold, alpha, beta, gamma, mu):
     bands_list = [b for b in range(1, (number_hashes + 1)) if number_hashes % b == 0]
-    binary_matrix = get_binary_matrix(products, shingle_size)
-    signature_matrix = get_signature_matrix(binary_matrix, number_hashes)
 
     pcs = []
     f1_scores = []
@@ -118,33 +116,79 @@ def loop_parameters_plot(products, true_pairs, signature_matrix, bands, rows, t_
     plt.show()
 
 
+def loop_parameters_optimal(products, true_pairs, signature_matrix, bands, rows, t_score, tot_comparisons, shingle_size):
+    print(f"The t score = {t_score}")
+
+    candidate_pairs = perform_LSH(products, signature_matrix, bands, rows)
+    comparisons_made = len(candidate_pairs)
+    print(f"The fraction of comparisons made = {comparisons_made / tot_comparisons}")
+    print(f"The amount of comparisons made = {comparisons_made}")
+
+    PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
+    pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
+    PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix,
+                                                                              true_pairs)
+    print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat)
+
+    alpha_values = [0.05, 0.2]
+    beta_values = [0.05, 0.2]
+    gamma_values = [0.05, 0.2]
+    mu_values = [0.05, 0.2]
+    threshold_values = [0.6, 0.8]
+
+    best_f1 = 0
+    best_params = {}
+
+    for alpha in alpha_values:
+        for beta in beta_values:
+            for gamma in gamma_values:
+                for mu in mu_values:
+                    for threshold in threshold_values:
+                        predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold,
+                                                              shingle_size, alpha, beta, gamma, mu)
+                        TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs,
+                                                                                      true_pairs)
+                        print(f"alpha: {alpha}, beta: {beta}, gamma: {gamma}, mu: {mu}, threshold: {threshold}")
+                        if F1 > best_f1:
+                            best_f1 = F1
+                            best_params = {'alpha': alpha, 'beta': beta, 'gamma': gamma, 'mu': mu,
+                                           'threshold': threshold}
+                            print(f"temp best F1 Score: {best_f1}")
+                            print(f"temp best Parameters: {best_params}")
+
+    print(f"Best F1 Score: {best_f1}")
+    print(f"Best Parameters: {best_params}")
 #-----------------------------------------------------------------------------------------------------------------------
 # Set the seed for reproducibility
 random_seed = 123
 random.seed(random_seed)  # Seed for Python's built-in random module
 np.random.seed(random_seed)  # Seed for NumPy's random module
 
-number_hashes = 840
-bands = 60
-rows = number_hashes // bands
-t_score = (1 / bands) ** (1 / rows)
+number_hashes = 420
+#bands = 60
+#rows = number_hashes // bands
+#t_score = (1 / bands) ** (1 / rows)
 
 shingle_size = 3
-threshold = 0.1
+
 
 q = 3
-alpha = 0.1
-beta = 0.5
+alpha = 0.05
+beta = 0.05
 gamma = 0.2
-mu = 0.65
+mu = 0.2
+threshold = 0.6
 
 products = load_data()
 tot_comparisons = math.comb(len(products), 2)
 true_pairs = get_true_pairs(products)
 
-loop_bands(products, number_hashes, true_pairs, tot_comparisons, shingle_size, threshold, alpha, beta, gamma, mu)
-loop_parameters_plot(products, true_pairs, signature_matrix, bands, rows, t_score, tot_comparisons, shingle_size)
+binary_matrix = get_binary_matrix(products, shingle_size)
+signature_matrix = get_signature_matrix(binary_matrix, number_hashes)
 
+loop_bands(products, number_hashes, true_pairs, tot_comparisons, shingle_size, threshold, alpha, beta, gamma, mu)
+#loop_parameters_plot(products, true_pairs, signature_matrix, bands, rows, t_score, tot_comparisons, shingle_size)
+#loop_parameters_optimal(products, true_pairs, signature_matrix, bands, rows, t_score, tot_comparisons, shingle_size)
 
 
 print("bug_analyse")

@@ -100,9 +100,17 @@ def get_signature_matrix(binary_matrix, number_hashes):
 
 
 def hash_function_band(product_vector):
-    # Concatenate values within the band to form the bucket number
-    product_vector = [int(value) if isinstance(value, np.float64) else value for value in product_vector]
-    bucket_number = int(''.join(map(str, product_vector)))
+    prime = 101
+    bucket_number = 0
+    big_prime = 7837831
+    for i, value in enumerate(product_vector):
+        bucket_number = (bucket_number + value*i) * (prime ** i%big_prime) % big_prime
+
+
+
+    # # Concatenate values within the band to form the bucket number
+    # product_vector = [int(value) if isinstance(value, np.float64) else value for value in product_vector]
+    # bucket_number = int(''.join(map(str, product_vector)))
     return bucket_number
 
 
@@ -210,7 +218,7 @@ def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
 
     F1_star_predismat = (2 * PQ_predismat * PC_predismat) / (PQ_predismat + PC_predismat)
 
-    return PQ_predismat, PC_predismat, F1_star_predismat
+    return dismat_pairs, PQ_predismat, PC_predismat, F1_star_predismat
 
 def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta, gamma, mu):
     for i, product1 in enumerate(products):
@@ -293,11 +301,14 @@ def get_final_performance(products, predicted_pairs, true_pairs):
     TN = math.comb(len(products), 2) - TP - FN - FP
 
 
+    if len(predicted_pairs) == 0:
+        precision = 0
+        PQ = 0
+    else:
+        precision = TP / (TP + FP)  # quality
+        PQ = TP / len(predicted_pairs)
 
-    precision = TP / (TP + FP)  # quality
     recall = TP / (TP + FN)     # completeness
-
-    PQ = TP / len(predicted_pairs)
     PC = TP / len(true_pairs)
 
     F1 = (2 * TP) / (2 * TP + FP + FN)
@@ -339,6 +350,25 @@ def print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star
     print("scores before clustering (before and after checking for brand and shop)")
     print(table_LSH)
 
+def print_performance(candidate_pairs, dismat_pairs, predicted_pairs, true_pairs, PQ_star, PC_star, F1_star,
+                      PQ_predismat, PC_predismat, F1_star_predismat, PQ, PC, F1, TN, TP, FN, FP, precision, recall):
+    performance = [
+        ["PQ", PQ_star, PQ_predismat, PQ],
+        ["PC", PC_star, PC_predismat, PC],
+        ["F1 star", F1_star, F1_star_predismat, F1], ]
+    table = tabulate(performance, headers=["", "before", "after", "final"], tablefmt="grid")
+
+    print("scores")
+    print(table)
+
+    print(f"TN = {TN}, TP = {TP}, FN = {FN}, FP = {FP}")
+    print(f"precision = {precision}, recall = {recall}")
+
+    print(f"amount of candidate pairs = {len(candidate_pairs)}")
+    print(f"amount of pairs in dissimilarity matrix = {len(dismat_pairs)}")
+    print(f"amount of predicted pairs = {len(predicted_pairs)}")
+    print(f"amount of true pairs = {len(true_pairs)}")
+
 
 def load_data():
     with open("TVs-all-merged.json") as json_file:
@@ -376,22 +406,24 @@ if __name__ == "__main__":
     print(f"The t score = {t_score}")
 
     q = 3
-    threshold = 0.8
-    alpha = 0.1
-    beta = 0.1
-    gamma = 0.05
-    mu = 0.5
+    threshold = 0.6
+    alpha = 0.05
+    beta = 0.05
+    gamma = 0.2
+    mu = 0.2
 
     products = load_data()
     true_pairs = get_true_pairs(products)
+    tot_comparisons = math.comb(len(products), 2)
     binary_matrix = get_binary_matrix(products, shingle_size)
     signature_matrix = get_signature_matrix(binary_matrix, number_hashes)
     candidate_pairs = perform_LSH(products, signature_matrix, bands, rows)
     comparisons_made = len(candidate_pairs)
     print(f"The amount of comparisons made = {comparisons_made}")
+    print(f"The fraction of comparisons made = {comparisons_made / tot_comparisons}")
     PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
     pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
-    PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix,
+    dismat_pairs, PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix,
                                                                               true_pairs)
     print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat)
     predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold, shingle_size, alpha, beta,
