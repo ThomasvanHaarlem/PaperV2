@@ -95,22 +95,21 @@ def get_signature_matrix(binary_matrix, number_hashes):
                     if hash_value < signature_matrix[h_idx, col_idx]:
                         signature_matrix[h_idx, col_idx] = hash_value
 
-    print("bug_sigmat")
     return signature_matrix
 
 
 def hash_function_band(product_vector):
-    prime = 101
-    bucket_number = 0
-    big_prime = 7837831
-    for i, value in enumerate(product_vector):
-        bucket_number = (bucket_number + value*i) * (prime ** i%big_prime) % big_prime
+    # prime = 101
+    # bucket_number = 0
+    # big_prime = 7837831
+    # for i, value in enumerate(product_vector):
+    #     bucket_number = (bucket_number + value*i) * (prime ** i%big_prime) % big_prime
 
 
 
-    # # Concatenate values within the band to form the bucket number
-    # product_vector = [int(value) if isinstance(value, np.float64) else value for value in product_vector]
-    # bucket_number = int(''.join(map(str, product_vector)))
+    # Concatenate values within the band to form the bucket number
+    product_vector = [int(value) if isinstance(value, np.float64) else value for value in product_vector]
+    bucket_number = int(''.join(map(str, product_vector)))
     return bucket_number
 
 
@@ -143,7 +142,6 @@ def perform_LSH(products, signature_matrix, bands, rows):
         for pair in itertools.combinations(group, 2):
             candidate_pairs.add(tuple(sorted(pair)))  # Sorting ensures (1, 2) and (2, 1) are treated as the same pair
 
-    print("bug_LSH")
     return candidate_pairs
 
 
@@ -196,7 +194,6 @@ def pre_dis_mat(products, candidate_pairs):
             elif (i, j) not in candidate_pairs and (j, i) not in candidate_pairs:
                 dis_matrix[i][j] = dis_matrix[j][i] = np.inf
 
-    print("bug_pre")
     return dis_matrix
 
 
@@ -316,18 +313,22 @@ def get_final_performance(products, predicted_pairs, true_pairs):
     # F1_test_2 = (2 * precision * recall) / (precision + recall)
     #
     # print(f"F1 = {F1}, F1_test = {F1_test}, F1_test_2 = {F1_test_2}")
-    # Print things:
-    final_performance = [
-        ["F1", F1],
-        ["precision", precision],
-        ["recall", recall],
+
+    return TN, TP, FN, FP, F1, precision, recall
+
+def print_performance(candidate_pairs, dismat_pairs, predicted_pairs, true_pairs, PQ_star, PC_star, F1_star,
+                      PQ_predismat, PC_predismat, F1_star_predismat, F1_final, TN, TP, FN, FP, PQ_final, PC_final):
+    # Prepare the data for the table
+    data = [
+        ["F1", F1_star, F1_star_predismat, F1_final],
+        ["PQ", PQ_star, PQ_predismat, PQ_final],
+        ["PC", PC_star, PC_predismat, PC_final],
+        ["# Pairs", len(candidate_pairs), len(dismat_pairs), len(predicted_pairs)]
     ]
-    table_final = tabulate(final_performance, headers=["", "score"], tablefmt="grid")
 
-    print("final scores")
-    print(table_final)
-
-    print(f"PQ = {PQ}, PC = {PC}")
+    # Generate and print the table
+    table = tabulate(data, headers=["", "LSH", "Blocking", "Final"], tablefmt="grid")
+    print(table)
 
     confusion_matrix = [
         ["TN:", TN, "FP:", FP],
@@ -336,38 +337,6 @@ def get_final_performance(products, predicted_pairs, true_pairs):
     # Print the confusion matrix
     for row in confusion_matrix:
         print("\t".join(map(str, row)))
-
-    return TN, TP, FN, FP, F1, precision, recall
-
-
-def print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat):
-    performance_LSH = [
-        ["PQ", PQ, PQ_predismat],
-        ["PC", PC, PC_predismat],
-        ["F1 star", F1_star, F1_star_predismat], ]
-    table_LSH = tabulate(performance_LSH, headers=["", "before", "after"], tablefmt="grid")
-
-    print("scores before clustering (before and after checking for brand and shop)")
-    print(table_LSH)
-
-def print_performance(candidate_pairs, dismat_pairs, predicted_pairs, true_pairs, PQ_star, PC_star, F1_star,
-                      PQ_predismat, PC_predismat, F1_star_predismat, PQ, PC, F1, TN, TP, FN, FP, precision, recall):
-    performance = [
-        ["PQ", PQ_star, PQ_predismat, PQ],
-        ["PC", PC_star, PC_predismat, PC],
-        ["F1 star", F1_star, F1_star_predismat, F1], ]
-    table = tabulate(performance, headers=["", "before", "after", "final"], tablefmt="grid")
-
-    print("scores")
-    print(table)
-
-    print(f"TN = {TN}, TP = {TP}, FN = {FN}, FP = {FP}")
-    print(f"precision = {precision}, recall = {recall}")
-
-    print(f"amount of candidate pairs = {len(candidate_pairs)}")
-    print(f"amount of pairs in dissimilarity matrix = {len(dismat_pairs)}")
-    print(f"amount of predicted pairs = {len(predicted_pairs)}")
-    print(f"amount of true pairs = {len(true_pairs)}")
 
 
 def load_data():
@@ -421,12 +390,13 @@ if __name__ == "__main__":
     comparisons_made = len(candidate_pairs)
     print(f"The amount of comparisons made = {comparisons_made}")
     print(f"The fraction of comparisons made = {comparisons_made / tot_comparisons}")
-    PQ, PC, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
+    PQ_star, PC_star, F1_star = get_performance_LSH(true_pairs, candidate_pairs)
     pre_dissimilarity_matrix = pre_dis_mat(products, candidate_pairs)
     dismat_pairs, PQ_predismat, PC_predismat, F1_star_predismat = get_performance_predismat(products, pre_dissimilarity_matrix,
                                                                               true_pairs)
-    print_before_clustering(PQ, PC, F1_star, PQ_predismat, PC_predismat, F1_star_predismat)
     predicted_pairs = get_predicted_pairs(products, pre_dissimilarity_matrix, threshold, shingle_size, alpha, beta,
                                           gamma, mu)
-    TN, TP, FN, FP, F1, precision, recall = get_final_performance(products, predicted_pairs, true_pairs)
+    TN, TP, FN, FP, F1_final, PQ_final, PC_final = get_final_performance(products, predicted_pairs, true_pairs)
+    print_performance(candidate_pairs, dismat_pairs, predicted_pairs, true_pairs, PQ_star, PC_star, F1_star,
+                      PQ_predismat, PC_predismat, F1_star_predismat, F1_final, TN, TP, FN, FP, PQ_final, PC_final)
     print("END_BUG")
