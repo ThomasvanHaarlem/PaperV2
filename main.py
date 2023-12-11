@@ -67,6 +67,9 @@ def hash_function_generator(a, b, prime):
 
 
 def get_signature_matrix(binary_matrix, number_hashes):
+    """
+    function to generate the signature matrix
+    """
     n, p = binary_matrix.shape
     signature_matrix = np.full((number_hashes, p), np.inf)
     prime = sympy.nextprime(n * 2)
@@ -154,11 +157,11 @@ def update_brands(products):
     # Create set of brands mentioned
     brands = set()
     for product in products:
-        if product.brand is not None:
+        if product.brand != "Brand not found":
             brands.add(product.brand)
 
     for tv in products:
-        if tv.brand is None:
+        if tv.brand == "Brand not found":
             for brand in brands:
                 if brand in tv.title:
                     tv.brand = brand
@@ -167,7 +170,7 @@ def update_brands(products):
 
 def pre_dis_mat(products, candidate_pairs):
     dis_matrix = np.full((len(products), len(products)), 1.0)
-    update_brands(products)
+    #update_brands(products)
 
     for i, product1 in enumerate(products):
         for j, product2 in enumerate(products[i:], start=i):
@@ -220,13 +223,23 @@ def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta,
                 shingles2 = product2.get_shingles_title(shingle_size)
 
                 count = sum(1 for shingle in shingles1 if shingle in shingles2)
-                similarity = count / min(len(shingles1), len(shingles2)) if shingles1 or shingles2 else 0
+                sim_shingles = count / min(len(shingles1), len(shingles2)) if shingles1 or shingles2 else 0
+                similarity = alpha * sim_shingles
+
+                modelwords1 = product1.model_words_title
+                modelwords2 = product2.model_words_title
+
+                count = sum(1 for word in modelwords1 if word in modelwords2)
+                sim_modelwords = count / min(len(modelwords1), len(modelwords2)) if modelwords1 or modelwords2 else 0
+                similarity += beta * sim_modelwords
+
+
                 if product1.size_class == product2.size_class:
-                    similarity += alpha
+                    similarity += gamma
 
                 if (product1.potential_model_id == product2.potential_model_id and
                         product1.potential_model_id != "Not found" and product2.potential_model_id != "Not found"):
-                    similarity += beta
+                    similarity += mu
 
                 if similarity > 1:
                     similarity = 1
@@ -279,7 +292,7 @@ def get_final_performance(products, predicted_pairs, true_pairs):
     FP = len(predicted_pairs) - TP
     TN = math.comb(len(products), 2) - TP - FN - FP
 
-    F1 = (2 * TP) / (2 * TP + FP + FN)
+
 
     precision = TP / (TP + FP)  # quality
     recall = TP / (TP + FN)     # completeness
@@ -287,6 +300,11 @@ def get_final_performance(products, predicted_pairs, true_pairs):
     PQ = TP / len(predicted_pairs)
     PC = TP / len(true_pairs)
 
+    F1 = (2 * TP) / (2 * TP + FP + FN)
+    # F1_test = (2 * PQ * PC) / (PQ + PC)
+    # F1_test_2 = (2 * precision * recall) / (precision + recall)
+    #
+    # print(f"F1 = {F1}, F1_test = {F1_test}, F1_test_2 = {F1_test_2}")
     # Print things:
     final_performance = [
         ["F1", F1],
@@ -351,21 +369,20 @@ if __name__ == "__main__":
 
     shingle_size = 3
     number_hashes = 600
-    bands = 120
-    threshold = 0.1
+    bands = 60
+
     rows = number_hashes // bands
     t_score = (1 / bands) ** (1 / rows)
     print(f"The t score = {t_score}")
 
     q = 3
-    alpha = 0.05
-    beta = 0.5
-    gamma = 0.2
-    mu = 0.65
+    threshold = 0.8
+    alpha = 0.1
+    beta = 0.1
+    gamma = 0.05
+    mu = 0.5
 
     products = load_data()
-    for product in products:
-        product.get_potential_model_id()
     true_pairs = get_true_pairs(products)
     binary_matrix = get_binary_matrix(products, shingle_size)
     signature_matrix = get_signature_matrix(binary_matrix, number_hashes)

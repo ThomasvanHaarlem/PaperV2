@@ -26,7 +26,8 @@ class Product:
     def clean_title(self, title):
         title = title.lower()
         title = re.sub(r'\s*-\s*hz|\s*hertz|\s+hz', 'hz', title)
-        title = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"|\d+\s*in\b', 'inch', title)
+        title = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"|\d+\s*in\b|\s*\'|\s*”', 'inch', title)
+        title = title.replace("inchinch", "inch")
         title = title.replace("-", "")
         title = title.replace("/", "")
         return title
@@ -38,7 +39,7 @@ class Product:
             if isinstance(value, str):
                 cleaned_value = value.lower()
                 cleaned_value = re.sub(r'\s*-\s*hz|\s*hertz|\s+hz', 'hz', cleaned_value)
-                cleaned_value = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"', 'inch', cleaned_value)
+                cleaned_value = re.sub(r'\s*-?\s*inches?|\s*-\s*inch|\s*inch|\s+inch|\s*"|\d+\s*in\b|\s*\'|\s*”', 'inch', cleaned_value)
             else:
                 cleaned_value = value
             cleaned_features[cleaned_key] = cleaned_value
@@ -60,8 +61,8 @@ class Product:
         """
         Find all model words in a title. A model word contains at least two of the following types:
         alphanumerical, numerical, and special characters.
-        does not yet include "
         """
+        # regex to find all words
         regex = r'([a-zA-Z0-9]*(?:(?:[0-9]+(?:\.[0-9]+)?[^0-9, ()]+)|(?:[^0-9, ()]+[0-9]+(?:\.[0-9]+)?))[a-zA-Z0-9]*)'
 
         model_words_title = re.findall(regex, self.title)
@@ -84,13 +85,22 @@ class Product:
 
     def get_size(self):
         self.size_class = None
+        size_found = False
+
         for key, item in self.features.items():
             if "size" in key:
                 match = re.search(r'\d+(\.\d+)?', item)
                 if match:
                     size_value = float(match.group())
                     self.size_class = self.determine_size_class(size_value)
+                    size_found = True
                     break
+
+        if not size_found:
+            matches_title = re.findall(r'\d+(?:\.\d+)?(?=inch)', self.title)
+            if matches_title:
+                size_value = float(matches_title[0])
+                self.size_class = self.determine_size_class(size_value)
 
         return "size class: " + str(self.size_class) if self.size_class is not None else "size class not found"
     @staticmethod
