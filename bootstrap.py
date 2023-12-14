@@ -47,7 +47,8 @@ def bootstrap_all(products, n_bootstrap_samples, shingle_size, number_hashes, ba
 def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_size, threshold, alpha, beta, gamma, mu):
     #bands_list = [b for b in range(1, (number_hashes + 1)) if number_hashes % b == 0]
     #bands_list = [1, 20, 30, 60, 70, 84, 90, 126, 140, 180, 210, 252, 315, 420, 630, 1260]
-    bands_list = [1, 30, 70, 90, 126, 140, 180, 210, 252, 315, 420, 630]
+    #bands_list = [1, 30, 70, 90, 126, 140, 180, 210, 252, 315, 420, 630]
+    bands_list = [1, 30, 70, 90, 126, 140, 180, 210, 252, 315]
 
     # Initialize lists to store average metrics for each fraction of comparisons
     avg_pcs = []
@@ -101,7 +102,7 @@ def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_siz
             print_performance(candidate_pairs, dismat_pairs, predicted_pairs, true_pairs, PQ_star, PC_star, F1_star,
                               PQ_predismat, PC_predismat, F1_star_predismat, F1_final, TN, TP, FN, FP, PQ_final,
                               PC_final)
-            reduction_blocking = 1- len(dismat_pairs) / len(candidate_pairs)
+            reduction_blocking = 1 - len(dismat_pairs) / len(candidate_pairs)
             print(f"The reduction in comparisons made by blocking = {reduction_blocking}")
 
             pcs_temp.append(PC_final)
