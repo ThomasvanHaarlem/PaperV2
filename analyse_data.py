@@ -9,21 +9,6 @@ def features_count(products):
 
     return feature_counter
 
-
-def countFeatureKeysWebsite(products):  # Van RENZO!
-    website_key_counts = {}
-    for tv in products:
-        shop = tv.shop
-        features = tv.features
-
-        if shop not in website_key_counts:
-            website_key_counts[shop] = {}
-
-        for key in features:
-            website_key_counts[shop].setdefault(key, 0)
-            website_key_counts[shop][key] += 1
-    return website_key_counts
-
 def find_size(products):
     for tv in products:
         for key, item in tv.features.items():
