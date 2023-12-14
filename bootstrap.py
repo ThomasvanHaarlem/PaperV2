@@ -1,5 +1,6 @@
 from main import *
 import numpy as np
+import pandas as pd
 
 def bootstrap_sample(data):
     """ Generate a bootstrap sample and separate the data into a training and a test set. """
@@ -56,6 +57,7 @@ def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_siz
     avg_pqs_star = []
     avg_f1_star_scores = []
     avg_fractions = []
+    avg_reduction = []
 
     for bands in bands_list:
         rows = number_hashes // bands
@@ -71,6 +73,7 @@ def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_siz
         pqs_star_temp = []
         f1_star_scores_temp = []
         fractions_temp = []
+        reduction_blocking_temp = []
 
         for _ in range(n_bootstrap_samples):
             print("-----")
@@ -98,6 +101,8 @@ def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_siz
             print_performance(candidate_pairs, dismat_pairs, predicted_pairs, true_pairs, PQ_star, PC_star, F1_star,
                               PQ_predismat, PC_predismat, F1_star_predismat, F1_final, TN, TP, FN, FP, PQ_final,
                               PC_final)
+            reduction_blocking = 1- len(dismat_pairs) / len(candidate_pairs)
+            print(f"The reduction in comparisons made by blocking = {reduction_blocking}")
 
             pcs_temp.append(PC_final)
             pqs_temp.append(PQ_final)
@@ -106,6 +111,7 @@ def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_siz
             pqs_star_temp.append(PQ_star)
             f1_star_scores_temp.append(F1_star)
             fractions_temp.append(fraction)
+            reduction_blocking_temp.append(reduction_blocking)
 
         # Calculate the average metrics for the current fraction
         avg_pcs.append(np.mean(pcs_temp))
@@ -115,28 +121,43 @@ def bootstrap_and_plot(products, number_hashes, n_bootstrap_samples, shingle_siz
         avg_pqs_star.append(np.mean(pqs_star_temp))
         avg_f1_star_scores.append(np.mean(f1_star_scores_temp))
         avg_fractions.append(np.mean(fractions_temp))
+        avg_reduction.append(np.mean(reduction_blocking_temp))
 
+    data = {
+        'avg_f1': avg_f1_scores,
+        #'avg_f1_star': avg_f1_star_scores,
+        'avg_fractions': avg_fractions,
+        # Add any other averages you want to save
+    }
+
+    # Create a DataFrame
+    df = pd.DataFrame(data)
+
+    # Save to CSV
+    #df.to_csv('average_with_block.csv', index=False)
+
+    print(f"Average reduction by blocking = {np.mean(avg_reduction)}")
     # Plotting
     # Plot settings for larger and bold text
-    plt.rcParams.update({'font.size': 24, 'font.weight': 'bold'})
+    plt.rcParams.update({'font.size': 30, 'font.weight': 'bold'})
 
     # First plot
     plt.figure()
-    plt.plot(avg_fractions, avg_pcs, label='Pair Completeness', linestyle='-', marker='o')
-    plt.plot(avg_fractions, avg_pqs, label='Pair Quality', linestyle='-', marker='x')
-    plt.plot(avg_fractions, avg_f1_scores, label='F1 Score', linestyle='-', marker='+')
-    plt.xlabel('Average Fraction of Comparisons', fontweight='bold', fontsize=24)
-    plt.ylabel('Average Metric Value', fontweight='bold', fontsize=24)
+    plt.plot(avg_fractions, avg_pcs, label='Pair Completeness', linestyle='-', marker='o', linewidth=3.5)
+    plt.plot(avg_fractions, avg_pqs, label='Pair Quality', linestyle='-', marker='x', linewidth=3.5)
+    plt.plot(avg_fractions, avg_f1_scores, label='F1 Score', linestyle='-', marker='+', linewidth=3.5)
+    plt.xlabel('Average Fraction of Comparisons', fontweight='bold', fontsize=30)
+    plt.ylabel('Average Metric Value', fontweight='bold', fontsize=30)
     plt.legend()
     plt.title('Average Metrics for PQ, PC, F1')
 
     # Second plot
     plt.figure()
-    plt.plot(avg_fractions, avg_pcs_star, label='Pair Completeness Star', linestyle='-', marker='o')
-    plt.plot(avg_fractions, avg_pqs_star, label='Pair Quality Star', linestyle='-', marker='x')
-    plt.plot(avg_fractions, avg_f1_star_scores, label='F1 Star', linestyle='-', marker='+')
-    plt.xlabel('Average Fraction of Comparisons', fontweight='bold', fontsize=24)
-    plt.ylabel('Average Metric Value', fontweight='bold', fontsize=24)
+    plt.plot(avg_fractions, avg_pcs_star, label='Pair Completeness *', linestyle='-', marker='o', linewidth=3.5)
+    plt.plot(avg_fractions, avg_pqs_star, label='Pair Quality *', linestyle='-', marker='x', linewidth=3.5)
+    plt.plot(avg_fractions, avg_f1_star_scores, label='F1*', linestyle='-', marker='+', linewidth=3.5)
+    plt.xlabel('Average Fraction of Comparisons', fontweight='bold', fontsize=30)
+    plt.ylabel('Average Metric Value', fontweight='bold', fontsize=30)
     plt.legend()
     plt.title('Average Metrics for PQ Star, PC Star, F1 Star')
 
