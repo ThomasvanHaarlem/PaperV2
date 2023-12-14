@@ -6,6 +6,7 @@ import numpy as np
 import itertools
 from product import Product
 from tabulate import tabulate
+import matplotlib.pyplot as plt
 from MSM import msm
 
 from collections import Counter
@@ -210,12 +211,24 @@ def get_performance_predismat(products, pre_dissimilarity_matrix, true_pairs):
         if pair in true_pairs:
             duplicates_found += 1
 
-    PQ_predismat = duplicates_found / len(dismat_pairs)
+    if len(dismat_pairs) == 0:
+        PQ_predismat = 0
+    else:
+        PQ_predismat = duplicates_found / len(dismat_pairs)
+
     PC_predismat = duplicates_found / len(true_pairs)
 
-    F1_star_predismat = (2 * PQ_predismat * PC_predismat) / (PQ_predismat + PC_predismat)
+    if PQ_predismat == 0 and PC_predismat == 0:
+        F1_star_predismat = 0
+    else:
+        F1_star_predismat = (2 * PQ_predismat * PC_predismat) / (PQ_predismat + PC_predismat)
 
     return dismat_pairs, PQ_predismat, PC_predismat, F1_star_predismat
+
+def jaccard(str1, str2):
+    set1 = set(str1)
+    set2 = set(str2)
+    return len(set1.intersection(set2)) / len(set1.union(set2))
 
 def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta, gamma, mu):
     for i, product1 in enumerate(products):
@@ -227,15 +240,13 @@ def get_predicted_pairs(products, dis_mat, threshold, shingle_size, alpha, beta,
                 shingles1 = product1.get_shingles_title(shingle_size)
                 shingles2 = product2.get_shingles_title(shingle_size)
 
-                count = sum(1 for shingle in shingles1 if shingle in shingles2)
-                sim_shingles = count / min(len(shingles1), len(shingles2)) if shingles1 or shingles2 else 0
+                sim_shingles = jaccard(shingles1, shingles2)
                 similarity = alpha * sim_shingles
 
                 modelwords1 = product1.model_words_title
                 modelwords2 = product2.model_words_title
 
-                count = sum(1 for word in modelwords1 if word in modelwords2)
-                sim_modelwords = count / min(len(modelwords1), len(modelwords2)) if modelwords1 or modelwords2 else 0
+                sim_modelwords = jaccard(modelwords1, modelwords2)
                 similarity += beta * sim_modelwords
 
 
@@ -374,12 +385,11 @@ if __name__ == "__main__":
     t_score = (1 / bands) ** (1 / rows)
     print(f"The t score = {t_score}")
 
-    q = 3
     threshold = 0.6
-    alpha = 0.05
-    beta = 0.05
-    gamma = 0.2
-    mu = 0.2
+    alpha = 0.8
+    beta = 0.8
+    gamma = 0.3
+    mu = 0.3
 
     products = load_data()
     true_pairs = get_true_pairs(products)
