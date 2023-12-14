@@ -1,18 +1,22 @@
-# PaperV2
+# Computer Science For Business Analytics Paper
 
-To do:
+This repository contains my code for the CSBA Paper: Scalable Product Duplicate Detection
 
-To check:
-- if bands * rows != number_hashes the last few rows now get skipped in the LSH
-- in def hash_function_band
-  - if a product vector starts with a 0 (e.g. [0,2,3,0,5]) the first 0 gets omitted
-- for the sizes
-  - check whether there are wrong sizes
-  - what if size is mentioned twice in one product
-  - hoe toevoegen aan bin matrix?
+## File Structure
+The main file is `main.py` which contains almost all the needed functions.
+Going from top to bottom, the functions roughly follow the order of the method in the paper.
 
-- The following true duplicates have the same shop!?
-  - 904 905-1545 1546-1486 1487-1245 1247-1363 1364-1588 1589-1272 1274-1198 1199-1246 1248-1470 1472-1050 1052-1241 1243
-- The following true duplicates do not have the same brand!?
-  - 999 1000
+The `product.py` file is to create the product objects. 
+When the objects are created most of the data cleaning is automatically done.
+
+The `analyse_data.py` file is just for some basic analysis of the data. And plays no part in getting the final results.
+
+The `for_loop.py` file is to run the main file multiple times with different parameters. 
+I programmed this on demand, thus it is not very clean.
+
+The `bootstrap.py` file is to run the main file with different bootstraps. 
+I also added the plotting of the results for the paper in this part.
+
+The `plot evaluation.py` file is made specifically for the plotting of the evaluation of my added methods. 
+To be able to play around with the plot setting it uses a csv file that is created by the bootstrap file. 
 
