@@ -1,6 +1,7 @@
 # Computer Science For Business Analytics Paper
 
 This repository contains my code for the CSBA Paper: Scalable Product Duplicate Detection
+
 The used data set contains 1624 tv's from four different webshops. 
 By utilizing LSH with min-hashing a scalable method is created to detect duplicate products.
 For details on the method and the results see the paper.
